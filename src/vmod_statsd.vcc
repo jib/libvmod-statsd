@@ -1,3 +1,7 @@
 Module statsd
 Init init_function
-Function STRING hello(STRING)
+Function VOID server( PRIV_VCL, STRING, INT )
+Function VOID incr(STRING)
+Function VOID counter(STRING,INT)
+Function VOID timing(STRING,INT)
+
