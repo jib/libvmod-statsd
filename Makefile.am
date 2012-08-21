@@ -4,10 +4,10 @@ SUBDIRS = src
 
 EXTRA_DIST = README.rst
 
-dist_man_MANS = vmod_example.3
+dist_man_MANS = vmod_statsd.3
 MAINTAINERCLEANFILES = $(dist_man_MANS)
 
-vmod_example.3: README.rst
+vmod_statsd.3: README.rst
 if HAVE_RST2MAN
 	${RST2MAN} README.rst $@
 else

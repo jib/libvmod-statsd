@@ -1,5 +1,5 @@
 ============
-vmod_example
+vmod_statsd
 ============
 
 ----------------------
@@ -14,7 +14,7 @@ Varnish Example Module
 SYNOPSIS
 ========
 
-import example;
+import statsd;
 
 DESCRIPTION
 ===========
@@ -40,12 +40,12 @@ Description
 Example
         ::
 
-                set resp.http.hello = example.hello("World");
+                set resp.http.hello = statsd.hello("World");
 
 INSTALLATION
 ============
 
-This is an example skeleton for developing out-of-tree Varnish
+This is an statsd skeleton for developing out-of-tree Varnish
 vmods. It implements the "Hello, World!" as a vmod callback. Not
 particularly useful in good hello world tradition, but demonstrates how
 to get the glue around a vmod working.
@@ -74,23 +74,23 @@ Make targets:
 
 In your VCL you could then use this vmod along the following lines::
         
-        import example;
+        import statsd;
 
         sub vcl_deliver {
                 # This sets resp.http.hello to "Hello, World"
-                set resp.http.hello = example.hello("World");
+                set resp.http.hello = statsd.hello("World");
         }
 
 HISTORY
 =======
 
-This manual page was released as part of the libvmod-example package,
+This manual page was released as part of the libvmod-statsd package,
 demonstrating how to create an out-of-tree Varnish vmod.
 
 COPYRIGHT
 =========
 
 This document is licensed under the same license as the
-libvmod-example project. See LICENSE for details.
+libvmod-statsd project. See LICENSE for details.
 
 * Copyright (c) 2011 Varnish Software
