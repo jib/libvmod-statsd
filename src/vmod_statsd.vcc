@@ -1,6 +1,8 @@
 Module statsd
 Init init_function
 Function VOID server( PRIV_VCL, STRING, STRING )
+Function VOID prefix( PRIV_VCL, STRING )
+Function VOID suffix( PRIV_VCL, STRING )
 Function VOID incr( PRIV_VCL, STRING )
 Function VOID gauge( PRIV_VCL, STRING, INT )
 Function VOID timing( PRIV_VCL, STRING, INT )

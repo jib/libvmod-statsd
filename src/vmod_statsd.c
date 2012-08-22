@@ -16,6 +16,8 @@
 #define BUF_SIZE 500
 #define INCREMENT ":1|c"
 
+#define DEBUG 1
+
 #ifdef DEBUG                    // To print diagnostics to the error log
 #define _DEBUG 1                // enable through gcc -DDEBUG
 #else
@@ -25,43 +27,52 @@
 typedef struct statsdConfig {
 	char *host;     // statsd host
 	char *port;     // statsd port - as STRING
-	int socket;   // open socket to the daemon
+	char *prefix;   // prefix any key with this
+	char *suffix;   // suffix any key with this
+	int socket;     // open socket to the daemon
 } config_t;
 
 
 int
-_send_to_statsd( struct vmod_priv *priv, const char *stat ) {
-    config_t *cfg = priv->priv;
-
-    _DEBUG && fprintf( stderr, "send: %s:%s %s\n", cfg->host, cfg->port, stat );
-
-    // ******************************
-    // Sanity checks
-    // ******************************
-
-    int len = strlen( stat ) + 1;  // +1 for the null byte
-    if( len >= BUF_SIZE ) {
-        _DEBUG && fprintf( stderr, "Message length %d > max length %d - ignoring\n",
-            len, BUF_SIZE );
-        return -1;
-    }
-
-    // ******************************
-    // Send the packet
-    // ******************************
-
-    if( write( cfg->socket, stat, len ) != len ) {
-        _DEBUG && fprintf( stderr, "Partial/failed write for %s\n", stat );
-        return -1;
-    }
-
-}
-
-int
 init_function(struct vmod_priv *priv, const struct VCL_conf *conf) {
+
+    // ******************************
+    // Configuration defaults
+    // ******************************
+
+    config_t *cfg;
+    cfg         = malloc(sizeof(config_t));
+    cfg->host   = "localhost";
+    cfg->port   = "8125";
+    cfg->prefix = "";
+    cfg->suffix = "";
+
+    _DEBUG && fprintf( stderr, "init: configuration initialized\n" );
+
+    // ******************************
+    // Store the config
+    // ******************************
+
+    priv->priv = cfg;
+
 	return (0);
 }
 
+/** The following may ONLY be called from VCL_init **/
+void
+vmod_prefix( struct sess *sp, struct vmod_priv *priv, const char *prefix ) {
+
+    config_t *cfg = priv->priv;
+    cfg->prefix = strdup( prefix );
+}
+
+/** The following may ONLY be called from VCL_init **/
+void
+vmod_suffix( struct sess *sp, struct vmod_priv *priv, const char *suffix ) {
+
+    config_t *cfg = priv->priv;
+    cfg->suffix = strdup( suffix );
+}
 
 /** The following may ONLY be called from VCL_init **/
 void
@@ -71,8 +82,7 @@ vmod_server( struct sess *sp, struct vmod_priv *priv, const char *host, const ch
     // Configuration
     // ******************************
 
-    config_t *cfg;
-    cfg         = malloc(sizeof(config_t));
+    config_t *cfg = priv->priv;
     cfg->host   = strdup( host );
     cfg->port   = strdup( port );
 
@@ -131,67 +141,97 @@ vmod_server( struct sess *sp, struct vmod_priv *priv, const char *host, const ch
     // Store the config
     // ******************************
 
-    priv->priv = cfg;
+    //priv->priv = cfg;
 
     _DEBUG && printf( "statsd server: %s:%s (fd: %d)\n",
                 cfg->host, cfg->port, cfg->socket );
 }
 
+
+int
+_send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
+    config_t *cfg = priv->priv;
+
+    // Enough room for the key/val plus prefix/suffix pluss a null byte.
+    char stat[ strlen(key) + strlen(val) +
+               strlen(cfg->prefix) + strlen(cfg->suffix) + 1 ];
+
+    strncpy( stat, cfg->prefix, strlen(cfg->prefix) + 1 );
+    strncat( stat, key,         strlen(key)         + 1 );
+    strncat( stat, cfg->suffix, strlen(cfg->suffix) + 1 );
+    strncat( stat, val,         strlen(val)         + 1 );
+
+    _DEBUG && fprintf( stderr, "send: %s:%s %s\n", cfg->host, cfg->port, stat );
+
+    // ******************************
+    // Sanity checks
+    // ******************************
+
+    int len = strlen( stat ) + 1;  // +1 for the null byte
+    if( len >= BUF_SIZE ) {
+        _DEBUG && fprintf( stderr, "Message length %d > max length %d - ignoring\n",
+            len, BUF_SIZE );
+        return -1;
+    }
+
+    // ******************************
+    // Send the packet
+    // ******************************
+
+    if( write( cfg->socket, stat, len ) != len ) {
+        _DEBUG && fprintf( stderr, "Partial/failed write for %s\n", stat );
+        return -1;
+    }
+
+    return 0;
+}
+
+
 void
 vmod_incr( struct sess *sp, struct vmod_priv *priv, const char *key ) {
     _DEBUG && printf( "incr: %s\n", key );
 
-    // Get the buffer ready. +5 for the counter + null byte
-    char stat[ strlen(key) + 5 ];
-
-    // -4 to make sure there's room for the meta chars, but leave room
-    // now for the null byte
-    // XXX is using strNcpy overkill when the buffer is of known size?
-    // Looks like: gorets:1|c
-    strncpy( stat, key, sizeof(stat) - 4 );
-    strncat( stat, ":1|c", 4 );
-
     // Incremenet is straight forward - just add the count + type
-    _send_to_statsd( priv, stat );
+    _send_to_statsd( priv, key, ":1|c" );
 }
 
 void
-vmod_timing( struct sess *sp, struct vmod_priv *priv, const char *key, int val ) {
-    _DEBUG && printf( "timing: %s = %d\n", key, val );
+vmod_timing( struct sess *sp, struct vmod_priv *priv, const char *key, int num ) {
+    _DEBUG && printf( "timing: %s = %d\n", key, num );
 
     // Get the buffer ready. +4 for the metachars + null byte
-    char stat[ strlen(key) + sizeof( val ) + 4 ];
+    char val[ sizeof( num ) + 4 ];
 
     // looks like glork:320|ms
-    snprintf( stat, sizeof(stat) - 1, "%s:%d|ms", key, val );
+    snprintf( val, sizeof(val) - 1, ":%d|ms", num );
 
-    _send_to_statsd( priv, stat );
+    _send_to_statsd( priv, key, val );
 }
 
 void
-vmod_counter( struct sess *sp, struct vmod_priv *priv, const char *key, int val ) {
-    _DEBUG && printf( "counter: %s = %d\n", key, val );
+vmod_counter( struct sess *sp, struct vmod_priv *priv, const char *key, int num ) {
+    _DEBUG && printf( "counter: %s = %d\n", key, num );
 
     // Get the buffer ready. +3 for the metachars + null byte
-    char stat[ strlen(key) + sizeof( val ) + 3 ];
+    char val[ sizeof( num ) + 3 ];
 
     // looks like: gorets:42|c
-    snprintf( stat, sizeof(stat) - 1, "%s:%d|c", key, val );
+    snprintf( val, sizeof(val) - 1, ":%d|c", num );
 
-    _send_to_statsd( priv, stat );
+    _send_to_statsd( priv, key, val );
 }
 
 void
-vmod_gauge( struct sess *sp, struct vmod_priv *priv, const char *key, int val ) {
-    _DEBUG && printf( "gauge: %s = %d\n", key, val );
+vmod_gauge( struct sess *sp, struct vmod_priv *priv, const char *key, int num ) {
+    _DEBUG && printf( "gauge: %s = %d\n", key, num );
 
     // Get the buffer ready. +3 for the metachars + null byte
-    char stat[ strlen(key) + sizeof( val ) + 3 ];
+    char val[ sizeof( num ) + 3 ];
 
     // looks like: gaugor:333|g
-    snprintf( stat, sizeof(stat) - 1, "%s:%d|g", key, val );
+    snprintf( val, sizeof(val) - 1, ":%d|g", num );
 
-    _send_to_statsd( priv, stat );
+    _send_to_statsd( priv, key, val );
 }
 
 
