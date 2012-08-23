@@ -5,12 +5,29 @@ server s1 {
        txresp
 } -start
 
+# XXX I don't know how to test reception of UDP packets from varnish,
+# so for now, these tests just make sure that the process doesn't crash,
+# hang, or do anything else bad
+
 varnish v1 -vcl+backend {
 	import statsd from "${vmod_topbuild}/src/.libs/libvmod_statsd.so";
 
+    sub vcl_init {
+        statsd.server("localhost", "1");    # nothing listens on UDP port 1 right?
+        statsd.prefix("prefix");
+        statsd.suffix("suffix");
+    }
+
 	sub vcl_deliver {
-		set resp.http.hello = statsd.hello("World");
+        statsd.incr(    "incr"          );
+        statsd.gauge(   "gauge",    42  );
+        statsd.timing(  "timing",   42  );
+        statsd.counter( "counter",  42  );
+
+	    # So we know we got to at least here.
+	    set resp.http.hello = "Hello, World";
 	}
+
 } -start
 
 client c1 {
