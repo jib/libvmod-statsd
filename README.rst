@@ -14,19 +14,19 @@ Varnish Statsd Module
 SYNOPSIS
 ========
 
-    import statsd;
+                import statsd;
 
-    sub vcl_init {
-        # Optional, defaults to localhost:8125
-        statsd.server( "statsd.example.com", "8125" );
-    }
+                sub vcl_init {
+                    # Optional, defaults to localhost:8125
+                    statsd.server( "statsd.example.com", "8125" );
+                }
 
-    sub vcl_deliver {
-        statsd.incr(    "incr"          );
-        statsd.gauge(   "gauge",    42  );
-        statsd.timing(  "timing",   42  );
-        statsd.counter( "counter",  42  );
-    }
+                sub vcl_deliver {
+                    statsd.incr(    "incr"          );
+                    statsd.gauge(   "gauge",    42  );
+                    statsd.timing(  "timing",   42  );
+                    statsd.counter( "counter",  42  );
+                }
 
 DESCRIPTION
 ===========
@@ -49,7 +49,7 @@ Return value
 	NONE
 Description
 	Set the address of your Statsd server.
-    Best used in vcl_init. Defaults to "localhost", "8125"
+	Best used in vcl_init. Defaults to "localhost", "8125"
 
 Example::
 
@@ -66,7 +66,7 @@ Return value
 	NONE
 Description
 	Set a string to prefix to all the stats you will be sending.
-    Best used in vcl_init. Defaults to an empty string.
+	Best used in vcl_init. Defaults to an empty string.
 
 Example::
 
