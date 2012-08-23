@@ -16,7 +16,7 @@
 #define BUF_SIZE 500
 #define INCREMENT ":1|c"
 
-#define DEBUG 1
+//#define DEBUG 1
 
 #ifdef DEBUG                    // To print diagnostics to the error log
 #define _DEBUG 1                // enable through gcc -DDEBUG
@@ -196,6 +196,7 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
 
     _DEBUG && fprintf( stderr, "Sent %d of %d bytes to FD %d\n", sent, len, sock );
 
+    // Should we unset the socket if this happens?
     if( sent != len ) {
         _DEBUG && fprintf( stderr, "Partial/failed write for %s\n", stat );
         return -1;

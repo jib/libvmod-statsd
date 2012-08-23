@@ -3,59 +3,177 @@ vmod_statsd
 ============
 
 ----------------------
-Varnish Example Module
+Varnish Statsd Module
 ----------------------
 
-:Author: Martin Blix Grydeland
-:Date: 2011-05-26
+:Author: Jos Boumans
+:Date: 2012-08-22
 :Version: 1.0
 :Manual section: 3
 
 SYNOPSIS
 ========
 
-import statsd;
+    import statsd;
+
+    sub vcl_init {
+        # Optional, defaults to localhost:8125
+        statsd.server( "statsd.example.com", "8125" );
+    }
+
+    sub vcl_deliver {
+        statsd.incr(    "incr"          );
+        statsd.gauge(   "gauge",    42  );
+        statsd.timing(  "timing",   42  );
+        statsd.counter( "counter",  42  );
+    }
 
 DESCRIPTION
 ===========
 
-Example Varnish vmod demonstrating how to write an out-of-tree Varnish vmod.
+Varnish Module (vmod) for sending statistics to Statsd.
 
-Implements the traditional Hello World as a vmod.
+See https://github.com/etsy/statsd for documentation on Statsd.
 
 FUNCTIONS
 =========
 
-hello
+server
+------
+
+Prototype::
+
+                server(STRING S, STRING S)
+
+Return value
+	NONE
+Description
+	Set the address of your Statsd server.
+    Best used in vcl_init. Defaults to "localhost", "8125"
+
+Example::
+
+                statsd.server( "statsd.example.com", "8125" );
+
+prefix
+------
+
+Prototype::
+
+                prefix(STRING S)
+
+Return value
+	NONE
+Description
+	Set a string to prefix to all the stats you will be sending.
+    Best used in vcl_init. Defaults to an empty string.
+
+Example::
+
+                # statsd.incr( "foo" ) will now send "dev.foo" to Statsd
+                statsd.prefix( "dev." );
+
+suffix
+------
+
+Prototype::
+
+                suffix(STRING S)
+
+Return value
+	NONE
+Description
+	Set a string to suffix to all the stats you will be sending.
+	Best used in vcl_init. Defaults to an empty string.
+
+Example::
+
+                # statsd.incr( "foo" ) will now send "foo.dev" to Statsd
+                statsd.suffix( ".dev" );
+
+incr
+----
+
+Prototype::
+
+                incr(STRING S)
+
+Return value
+	NONE
+Description
+	Send a stat counter with value '1' to Statsd. Will be prefixed & suffixed
+	with whatever you set statsd.prefix & statsd.suffix to.
+
+Example::
+
+                statsd.incr( "foo" );
+
+counter
+-------
+
+Prototype::
+
+                counter(STRING S, INT I)
+
+Return value
+	NONE
+Description
+	Send a stat counter with value I to Statsd. Will be prefixed & suffixed
+	with whatever you set statsd.prefix & statsd.suffix to.
+
+Example::
+
+                statsd.counter( "foo", 42 );
+
+timing
+-------
+
+Prototype::
+
+                timing(STRING S, INT I)
+
+Return value
+	NONE
+Description
+	Send a stat timer with value I to Statsd. Will be prefixed & suffixed
+	with whatever you set statsd.prefix & statsd.suffix to.
+
+Example::
+
+                statsd.timing( "foo", 42 );
+
+gauge
 -----
 
-Prototype
-        ::
+Prototype::
 
-                hello(STRING S)
+                gauge(STRING S, INT I)
+
 Return value
-	STRING
+	NONE
 Description
-	Returns "Hello, " prepended to S
-Example
-        ::
+	Send a stat gauge with value I to Statsd. Will be prefixed & suffixed
+	with whatever you set statsd.prefix & statsd.suffix to.
 
-                set resp.http.hello = statsd.hello("World");
+Example::
+
+                statsd.gauge( "foo", 42 );
+
 
 INSTALLATION
 ============
 
-This is an statsd skeleton for developing out-of-tree Varnish
-vmods. It implements the "Hello, World!" as a vmod callback. Not
-particularly useful in good hello world tradition, but demonstrates how
-to get the glue around a vmod working.
-
-The source tree is based on autotools to configure the building, and
-does also have the necessary bits in place to do functional unit tests
-using the varnishtest tool.
+If you received this packge without a pre-generated configure script, you must
+have the GNU Autotools installed, and can then run the 'autogen.sh' script. If
+you received this package with a configure script, skip to the second
+command-line under Usage to configure.
 
 Usage::
 
+ # Generate configure script
+ ./autogen.sh
+
+ # Execute configure script
  ./configure VARNISHSRC=DIR [VMODDIR=DIR]
 
 `VARNISHSRC` is the directory of the Varnish source tree for which to
@@ -72,20 +190,12 @@ Make targets:
 * make install - installs your vmod in `VMODDIR`
 * make check - runs the unit tests in ``src/tests/*.vtc``
 
-In your VCL you could then use this vmod along the following lines::
-        
-        import statsd;
 
-        sub vcl_deliver {
-                # This sets resp.http.hello to "Hello, World"
-                set resp.http.hello = statsd.hello("World");
-        }
+SEE ALSO
+========
 
-HISTORY
-=======
-
-This manual page was released as part of the libvmod-statsd package,
-demonstrating how to create an out-of-tree Varnish vmod.
+* https://github.com/etsy/statsd
+* https://www.varnish-cache.org
 
 COPYRIGHT
 =========
@@ -93,4 +203,4 @@ COPYRIGHT
 This document is licensed under the same license as the
 libvmod-statsd project. See LICENSE for details.
 
-* Copyright (c) 2011 Varnish Software
+* Copyright (c) 2012 Jos Boumans
