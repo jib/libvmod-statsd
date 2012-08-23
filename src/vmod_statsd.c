@@ -33,6 +33,10 @@ typedef struct statsdConfig {
 } config_t;
 
 
+// ******************************
+// Configuration
+// ******************************
+
 int
 init_function(struct vmod_priv *priv, const struct VCL_conf *conf) {
 
@@ -85,18 +89,23 @@ vmod_server( struct sess *sp, struct vmod_priv *priv, const char *host, const ch
     config_t *cfg = priv->priv;
     cfg->host   = strdup( host );
     cfg->port   = strdup( port );
+}
 
 
-    // ******************************
-    // Connect to the remote socket
-    // ******************************
+// ******************************
+// Connect to the remote socket
+// ******************************
 
+int
+_connect_to_statsd( struct vmod_priv *priv ) {
+    config_t *cfg = priv->priv;
+
+    // Grab 2 structs for the connection
     struct addrinfo *statsd;
     statsd = malloc(sizeof(struct addrinfo));
 
     struct addrinfo *hints;
     hints = malloc(sizeof(struct addrinfo));
-
 
     // what type of socket is the statsd endpoint?
     hints->ai_family   = AF_INET;
@@ -112,6 +121,11 @@ vmod_server( struct sess *sp, struct vmod_priv *priv, const char *host, const ch
             cfg->host, cfg->port, gai_strerror(err) );
         return;
     }
+
+
+    // ******************************
+    // Store the open connection
+    // ******************************
 
     // getaddrinfo() may return more than one address structure
     // but since this is UDP, we can't verify the connection
@@ -137,22 +151,17 @@ vmod_server( struct sess *sp, struct vmod_priv *priv, const char *host, const ch
     freeaddrinfo( statsd );
     freeaddrinfo( hints );
 
-    // ******************************
-    // Store the config
-    // ******************************
-
-    //priv->priv = cfg;
-
     _DEBUG && printf( "statsd server: %s:%s (fd: %d)\n",
                 cfg->host, cfg->port, cfg->socket );
-}
 
+    return cfg->socket;
+}
 
 int
 _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     config_t *cfg = priv->priv;
 
-    // Enough room for the key/val plus prefix/suffix pluss a null byte.
+    // Enough room for the key/val plus prefix/suffix plus newline plus a null byte.
     char stat[ strlen(key) + strlen(val) +
                strlen(cfg->prefix) + strlen(cfg->suffix) + 1 ];
 
@@ -160,6 +169,7 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     strncat( stat, key,         strlen(key)         + 1 );
     strncat( stat, cfg->suffix, strlen(cfg->suffix) + 1 );
     strncat( stat, val,         strlen(val)         + 1 );
+    strncat( stat, "\n",        1                       );
 
     _DEBUG && fprintf( stderr, "send: %s:%s %s\n", cfg->host, cfg->port, stat );
 
@@ -167,8 +177,10 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     // Sanity checks
     // ******************************
 
-    int len = strlen( stat ) + 1;  // +1 for the null byte
-    if( len >= BUF_SIZE ) {
+    int len = strlen( stat );
+
+    // +1 for the null byte
+    if( len + 1 >= BUF_SIZE ) {
         _DEBUG && fprintf( stderr, "Message length %d > max length %d - ignoring\n",
             len, BUF_SIZE );
         return -1;
@@ -178,7 +190,13 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     // Send the packet
     // ******************************
 
-    if( write( cfg->socket, stat, len ) != len ) {
+    // we may not have connected yet - in that case, do it now
+    int sock = cfg->socket ? cfg->socket : _connect_to_statsd( priv );
+    int sent = write( sock, stat, len );
+
+    _DEBUG && fprintf( stderr, "Sent %d of %d bytes to FD %d", sent, len, sock );
+
+    if( sent != len ) {
         _DEBUG && fprintf( stderr, "Partial/failed write for %s\n", stat );
         return -1;
     }
