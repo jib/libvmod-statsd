@@ -194,7 +194,7 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     int sock = cfg->socket ? cfg->socket : _connect_to_statsd( priv );
     int sent = write( sock, stat, len );
 
-    _DEBUG && fprintf( stderr, "Sent %d of %d bytes to FD %d", sent, len, sock );
+    _DEBUG && fprintf( stderr, "Sent %d of %d bytes to FD %d\n", sent, len, sock );
 
     if( sent != len ) {
         _DEBUG && fprintf( stderr, "Partial/failed write for %s\n", stat );
@@ -272,3 +272,7 @@ vmod_gauge( struct sess *sp, struct vmod_priv *priv, const char *key, int num ) 
 // 	WS_Release(sp->wrk->ws, v);
 // 	return (p);
 // }
+
+//     _DEBUG && fprintf( stderr, "Open: %.9f Req: %.9f Res: %.9f End: %.9f\n",
+//         sp->t_open, sp->t_req, sp->t_resp, sp->t_end );
+
