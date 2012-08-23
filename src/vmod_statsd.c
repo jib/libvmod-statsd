@@ -14,7 +14,6 @@
 #include <netdb.h>
 
 #define BUF_SIZE 500
-#define INCREMENT ":1|c"
 
 //#define DEBUG 1
 
