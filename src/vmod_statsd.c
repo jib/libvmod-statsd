@@ -217,11 +217,11 @@ void
 vmod_timing( struct sess *sp, struct vmod_priv *priv, const char *key, int num ) {
     _DEBUG && printf( "timing: %s = %d\n", key, num );
 
-    // Get the buffer ready. +4 for the metachars + null byte
-    char val[ sizeof( num ) + 4 ];
+    // Get the buffer ready. 10 for the maximum lenghth of an int and +5 for metadata
+    char val[ 15 ];
 
     // looks like glork:320|ms
-    snprintf( val, sizeof(val) - 1, ":%d|ms", num );
+    snprintf( val, sizeof(val), ":%d|ms", num );
 
     _send_to_statsd( priv, key, val );
 }
@@ -230,11 +230,11 @@ void
 vmod_counter( struct sess *sp, struct vmod_priv *priv, const char *key, int num ) {
     _DEBUG && printf( "counter: %s = %d\n", key, num );
 
-    // Get the buffer ready. +3 for the metachars + null byte
-    char val[ sizeof( num ) + 3 ];
+    // Get the buffer ready. 10 for the maximum lenghth of an int and +5 for metadata
+    char val[ 15 ];
 
     // looks like: gorets:42|c
-    snprintf( val, sizeof(val) - 1, ":%d|c", num );
+    snprintf( val, sizeof(val), ":%d|c", num );
 
     _send_to_statsd( priv, key, val );
 }
@@ -243,11 +243,11 @@ void
 vmod_gauge( struct sess *sp, struct vmod_priv *priv, const char *key, int num ) {
     _DEBUG && printf( "gauge: %s = %d\n", key, num );
 
-    // Get the buffer ready. +3 for the metachars + null byte
-    char val[ sizeof( num ) + 3 ];
+    // Get the buffer ready. 10 for the maximum lenghth of an int and +5 for metadata
+    char val[ 15 ];
 
     // looks like: gaugor:333|g
-    snprintf( val, sizeof(val) - 1, ":%d|g", num );
+    snprintf( val, sizeof(val), ":%d|g", num );
 
     _send_to_statsd( priv, key, val );
 }
