@@ -142,7 +142,7 @@ _connect_to_statsd( struct vmod_priv *priv ) {
     if( err = getaddrinfo( cfg->host, cfg->port, hints, &statsd ) != 0 ) {
         _DEBUG && fprintf( stderr, "getaddrinfo on %s:%s failed: %s\n",
             cfg->host, cfg->port, gai_strerror(err) );
-        return;
+        return -1;
     }
 
 
@@ -159,14 +159,14 @@ _connect_to_statsd( struct vmod_priv *priv ) {
     if( cfg->socket == -1 ) {
         _DEBUG && fprintf( stderr, "socket creation failed\n" );
         close( cfg->socket );
-        return;
+        return -1;
     }
 
     // connection failed.. for some reason...
     if( connect( cfg->socket, statsd->ai_addr, statsd->ai_addrlen ) == -1 ) {
         _DEBUG && fprintf( stderr, "socket connection failed\n" );
         close( cfg->socket );
-        return;
+        return -1;
     }
 
     // now that we have an outgoing socket, we don't need this
@@ -214,7 +214,15 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     // ******************************
 
     // we may not have connected yet - in that case, do it now
-    int sock = cfg->socket ? cfg->socket : _connect_to_statsd( priv );
+    int sock = cfg->socket > 0 ? cfg->socket : _connect_to_statsd( priv );
+
+    // If we didn't get a socket, don't bother trying to send
+    if( sock == -1 ) {
+        _DEBUG && fprintf( stderr, "Could not get socket for %s\n", stat );
+        return -1;
+    }
+
+    // Send the stat
     int sent = write( sock, stat, len );
 
     _DEBUG && fprintf( stderr, "Sent %d of %d bytes to FD %d\n", sent, len, sock );
