@@ -33,6 +33,31 @@ typedef struct statsdConfig {
 
 
 // ******************************
+// Utility functions
+// ******************************
+
+// Unfortunately std.fileread() will append a newline, even if there is none in
+// the file that was being read. So if you use that (as we suggest in the docs)
+// to set prefix/suffix, you'll be in for a nasty surprise.
+char *
+_strip_newline( char *line ) {
+    char *pos;
+
+    if( (pos = strchr( line, '\n' )) != NULL ) {
+        *pos = '\0';
+    }
+
+    if( (pos = strchr( line, '\r' )) != NULL ) {
+        *pos = '\0';
+    }
+
+    //_DEBUG && fprintf( stderr, "stripping new lines. New string: %s\n", line );
+
+
+    return line;
+}
+
+// ******************************
 // Configuration
 // ******************************
 
@@ -64,9 +89,8 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf) {
 /** The following may ONLY be called from VCL_init **/
 void
 vmod_prefix( struct sess *sp, struct vmod_priv *priv, const char *prefix ) {
-
     config_t *cfg = priv->priv;
-    cfg->prefix = strdup( prefix );
+    cfg->prefix = _strip_newline( strdup( prefix ) );
 }
 
 /** The following may ONLY be called from VCL_init **/
@@ -74,7 +98,7 @@ void
 vmod_suffix( struct sess *sp, struct vmod_priv *priv, const char *suffix ) {
 
     config_t *cfg = priv->priv;
-    cfg->suffix = strdup( suffix );
+    cfg->suffix = _strip_newline( strdup( suffix ) );
 }
 
 /** The following may ONLY be called from VCL_init **/
