@@ -18,15 +18,22 @@ varnish v1 -vcl+backend {
         statsd.suffix("suffix");
     }
 
-	sub vcl_deliver {
+    sub vcl_deliver {
         statsd.incr(    "incr"          );
         statsd.gauge(   "gauge",    1234567890  );
         statsd.timing(  "timing",   1234567890  );
         statsd.counter( "counter",  1234567890  );
 
-	    # So we know we got to at least here.
-	    set resp.http.hello = "Hello, World";
-	}
+        ### NULL pointers used to crash the module. Verify that bug
+        ### is gone.
+        statsd.incr(    resp.http.x-does-not-exist );
+        statsd.gauge(   resp.http.x-does-not-exist, 1234567890 );
+        statsd.timing(  resp.http.x-does-not-exist, 1234567890 );
+        statsd.counter( resp.http.x-does-not-exist, 1234567890 );
+
+        # So we know we got to at least here.
+        set resp.http.hello = "Hello, World";
+    }
 
 } -start
 

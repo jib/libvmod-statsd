@@ -183,6 +183,14 @@ _connect_to_statsd( struct vmod_priv *priv ) {
 int
 _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     config_t *cfg = priv->priv;
+   
+    // If you are using some empty key, bail - this can happen if you use
+    // say: statsd.incr( req.http.x-does-not-exist ). Rather than getting
+    // and empty string, we get a null pointer.
+    if( key == NULL || val == NULL ) {
+        _DEBUG && fprintf( stderr, "Key or value is NULL pointer - ignoring\n" );
+        return -1;
+    }
 
     // Enough room for the key/val plus prefix/suffix plus newline plus a null byte.
     char stat[ strlen(key) + strlen(val) +
