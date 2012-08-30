@@ -1,3 +1,7 @@
+# if VARNISHSRC is defined on the command-line, use that. Otherwise, build
+# this the same as the modules that come with varnish (i.e. we're building
+# within the varnish src dir itself, and $(top_srcdir) is the varnish source).
+#
 ifdef $(VARNISHSRC):
 	SRC = $(VARNISHSRC)
 	DIR_PREFIX = /
