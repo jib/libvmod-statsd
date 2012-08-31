@@ -2,19 +2,21 @@
 # this the same as the modules that come with varnish (i.e. we're building
 # within the varnish src dir itself, and $(top_srcdir) is the varnish source).
 #
-ifdef $(VARNISHSRC):
-	SRC = $(VARNISHSRC)
-	DIR_PREFIX = /
-else:
-	SRC = $(top_srcdir)
-	DIR_PREFIX = lib/libvmod-timers/
+if HAVE_VARNISHSRC
+SRC = $(VARNISHSRC)
+DIR_PREFIX = /
+else
+SRC = $(top_srcdir)
+DIR_PREFIX = lib/libvmod-timers/
+endif
 
 INCLUDES = -I$(SRC)/include -I$(SRC)
 
-ifdef $(VMODDIR):
-	vmoddir = $(VMODDIR)
-else:
-	vmoddir = $(pkglibdir)/vmods
+if HAVE_VMODDIR
+vmoddir = $(VMODDIR)
+else
+vmoddir = $(pkglibdir)/vmods
+endif
 
 vmod_LTLIBRARIES = libvmod_statsd.la
 
