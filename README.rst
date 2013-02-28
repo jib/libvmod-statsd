@@ -196,6 +196,8 @@ SEE ALSO
 
 * https://github.com/etsy/statsd
 * https://www.varnish-cache.org
+* http://jiboumans.wordpress.com/2013/02/27/realtime-stats-from-varnish/
+* https://gist.github.com/jib/5034755
 
 COPYRIGHT
 =========
