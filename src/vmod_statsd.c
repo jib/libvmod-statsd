@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <netinet/in.h>
 
 #define BUF_SIZE 500
 
@@ -212,7 +213,7 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     // Newer versions of statsd allow multiple metrics in a single packet, delimited
     // by newlines. That unfortunately means that if we end our message with a new
     // line, statsd will interpret this as an empty second metric and log a 'bad line'.
-    // This is true in at least version 0.5.0 and to avoid that, we don't send the 
+    // This is true in at least version 0.5.0 and to avoid that, we don't send the
     // newline. Makes debugging using nc -klu 8125 a bit more tricky, but works with
     // modern statsds.
     //strncat( stat, "\n",        1                       );
