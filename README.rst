@@ -163,10 +163,26 @@ Example::
 INSTALLATION
 ============
 
-If you received this packge without a pre-generated configure script, you must
-have the GNU Autotools installed, and can then run the 'autogen.sh' script. If
-you received this package with a configure script, skip to the second
-command-line under Usage to configure.
+To install this module, you'll need to install some prerequisites. On Ubuntu,
+you can get these by running::
+
+ $ apt-get install automake libtool python-docutils
+
+You will also need a compiled version of the varnish source code, which you
+can get from here:
+
+ https://www.varnish-cache.org
+ 
+The compilation of varnish is similar to this package. Please refer to the
+varnish documentation for all the options, but briefly, it is::
+
+ $ ./autogen.sh
+ $ ./configure
+ $ make
+
+If you received this packge without a pre-generated configure script, you will
+have to generate it using 'autogen.sh'. Otherwise, you can move straight on to
+the 'configure' section under Usage.
 
 Usage::
 
