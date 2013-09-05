@@ -52,7 +52,7 @@ _strip_newline( char *line ) {
         *pos = '\0';
     }
 
-    //_DEBUG && fprintf( stderr, "stripping new lines. New string: %s\n", line );
+    //_DEBUG && fprintf( stderr, "vmod-statsd: stripping new lines. New string: %s\n", line );
 
 
     return line;
@@ -76,7 +76,7 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf) {
     cfg->prefix = "";
     cfg->suffix = "";
 
-    _DEBUG && fprintf( stderr, "init: configuration initialized\n" );
+    _DEBUG && fprintf( stderr, "vmod-statsd: init: configuration initialized\n" );
 
     // ******************************
     // Store the config
@@ -130,9 +130,15 @@ _connect_to_statsd( struct vmod_priv *priv ) {
     hints = malloc(sizeof(struct addrinfo));
 
     if (hints == NULL) {
-        fprintf( stderr, "malloc failed for hints addrinfo struct\n"  );
+        fprintf( stderr, "vmod-statsd: malloc failed for hints addrinfo struct\n"  );
         return -1;
     }
+
+    // Hints can be full of garbage, and it's lead to segfaults inside
+    // Varnish. See this issue: https://github.com/jib/libvmod-statsd/pull/5/files
+    // As a way to fix that, we zero out the memory, as also pointed out
+    // in the freeaddrinfo manpage: http://linux.die.net/man/3/freeaddrinfo
+    memset( hints, 0, sizeof(struct addrinfo) );
 
     // what type of socket is the statsd endpoint?
     hints->ai_family   = AF_INET;
@@ -140,15 +146,20 @@ _connect_to_statsd( struct vmod_priv *priv ) {
     hints->ai_protocol = IPPROTO_UDP;
     hints->ai_flags    = 0;
 
+    _DEBUG && fprintf( stderr, "vmod-statsd: socket hints compiled\n" );
+
     // using getaddrinfo lets us use a hostname, rather than an
     // ip address.
     int err;
     if( (err = getaddrinfo( cfg->host, cfg->port, hints, &statsd )) != 0 ) {
-        _DEBUG && fprintf( stderr, "getaddrinfo on %s:%s failed: %s\n",
+        fprintf( stderr, "vmod-statsd: getaddrinfo on %s:%s failed: %s\n",
             cfg->host, cfg->port, gai_strerror(err) );
+
         freeaddrinfo( hints );
         return -1;
     }
+
+    _DEBUG && fprintf( stderr, "vmod-statsd: getaddrinfo completedn" );
 
     // ******************************
     // Store the open connection
@@ -161,29 +172,33 @@ _connect_to_statsd( struct vmod_priv *priv ) {
                        statsd->ai_protocol );
 
     if( cfg->socket == -1 ) {
-        _DEBUG && fprintf( stderr, "socket creation failed\n" );
+        _DEBUG && fprintf( stderr, "vmod-statsd: socket creation failed\n" );
         close( cfg->socket );
         freeaddrinfo( statsd );
         freeaddrinfo( hints );
         return -1;
     }
+
+    _DEBUG && fprintf( stderr, "vmod-statsd: socket opened: %d\n", cfg->socket );
 
     // connection failed.. for some reason...
     if( connect( cfg->socket, statsd->ai_addr, statsd->ai_addrlen ) == -1 ) {
-        _DEBUG && fprintf( stderr, "socket connection failed\n" );
+        _DEBUG && fprintf( stderr, "vmod-statsd: socket connection failed\n" );
         close( cfg->socket );
 
         freeaddrinfo( statsd );
         freeaddrinfo( hints );
         return -1;
     }
+
+    _DEBUG && fprintf( stderr, "vmod-statsd: socket connected\n" );
 
     // now that we have an outgoing socket, we don't need this
     // anymore.
     freeaddrinfo( statsd );
     freeaddrinfo( hints );
 
-    _DEBUG && printf( "statsd server: %s:%s (fd: %d)\n",
+    _DEBUG && fprintf( stderr, "vmod-statsd: statsd server: %s:%s (fd: %d)\n",
                 cfg->host, cfg->port, cfg->socket );
 
     return cfg->socket;
@@ -191,15 +206,21 @@ _connect_to_statsd( struct vmod_priv *priv ) {
 
 int
 _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
+    _DEBUG && fprintf( stderr, "vmod-statsd: pre config\n" );
+
     config_t *cfg = priv->priv;
+
+    _DEBUG && fprintf( stderr, "vmod-statsd: post config\n" );
 
     // If you are using some empty key, bail - this can happen if you use
     // say: statsd.incr( req.http.x-does-not-exist ). Rather than getting
     // and empty string, we get a null pointer.
     if( key == NULL || val == NULL ) {
-        _DEBUG && fprintf( stderr, "Key or value is NULL pointer - ignoring\n" );
+        _DEBUG && fprintf( stderr, "vmod-statsd: Key or value is NULL pointer - ignoring\n" );
         return -1;
     }
+
+    _DEBUG && fprintf( stderr, "vmod-statsd: pre stat composition\n" );
 
     // Enough room for the key/val plus prefix/suffix plus newline plus a null byte.
     char stat[ strlen(key) + strlen(val) +
@@ -210,6 +231,8 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     strncat( stat, cfg->suffix, strlen(cfg->suffix) + 1 );
     strncat( stat, val,         strlen(val)         + 1 );
 
+    _DEBUG && fprintf( stderr, "vmod-statsd: post stat composition: %s\n", stat );
+
     // Newer versions of statsd allow multiple metrics in a single packet, delimited
     // by newlines. That unfortunately means that if we end our message with a new
     // line, statsd will interpret this as an empty second metric and log a 'bad line'.
@@ -218,17 +241,21 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     // modern statsds.
     //strncat( stat, "\n",        1                       );
 
-    _DEBUG && fprintf( stderr, "send: %s:%s %s\n", cfg->host, cfg->port, stat );
+    //_DEBUG && fprintf( stderr, "vmod-statsd: send: %s:%s %s\n", cfg->host, cfg->port, stat );
 
     // ******************************
     // Sanity checks
     // ******************************
 
+    _DEBUG && fprintf( stderr, "vmod-statsd: pre stat length\n" );
+
     int len = strlen( stat );
+
+    _DEBUG && fprintf( stderr, "vmod-statsd: stat length: %d\n", len );
 
     // +1 for the null byte
     if( len + 1 >= BUF_SIZE ) {
-        _DEBUG && fprintf( stderr, "Message length %d > max length %d - ignoring\n",
+        _DEBUG && fprintf( stderr, "vmod-statsd: Message length %d > max length %d - ignoring\n",
             len, BUF_SIZE );
         return -1;
     }
@@ -237,23 +264,25 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     // Send the packet
     // ******************************
 
+    _DEBUG && fprintf( stderr, "vmod-statsd: Checking for existing socket (%d)\n", cfg->socket );
+
     // we may not have connected yet - in that case, do it now
     int sock = cfg->socket > 0 ? cfg->socket : _connect_to_statsd( priv );
 
     // If we didn't get a socket, don't bother trying to send
     if( sock == -1 ) {
-        _DEBUG && fprintf( stderr, "Could not get socket for %s\n", stat );
+        _DEBUG && fprintf( stderr, "vmod-statsd: Could not get socket for %s\n", stat );
         return -1;
     }
 
     // Send the stat
     int sent = write( sock, stat, len );
 
-    _DEBUG && fprintf( stderr, "Sent %d of %d bytes to FD %d\n", sent, len, sock );
+    _DEBUG && fprintf( stderr, "vmod-statsd: Sent %d of %d bytes to FD %d\n", sent, len, sock );
 
     // Should we unset the socket if this happens?
     if( sent != len ) {
-        _DEBUG && fprintf( stderr, "Partial/failed write for %s\n", stat );
+        _DEBUG && fprintf( stderr, "vmod-statsd: Partial/failed write for %s\n", stat );
         return -1;
     }
 
@@ -263,7 +292,7 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
 
 void
 vmod_incr( struct sess *sp, struct vmod_priv *priv, const char *key ) {
-    _DEBUG && printf( "incr: %s\n", key );
+    _DEBUG && fprintf( stderr, "vmod-statsd: incr: %s\n", key );
 
     // Incremenet is straight forward - just add the count + type
     _send_to_statsd( priv, key, ":1|c" );
@@ -271,7 +300,7 @@ vmod_incr( struct sess *sp, struct vmod_priv *priv, const char *key ) {
 
 void
 vmod_timing( struct sess *sp, struct vmod_priv *priv, const char *key, int num ) {
-    _DEBUG && printf( "timing: %s = %d\n", key, num );
+    _DEBUG && fprintf( stderr, "vmod-statsd: timing: %s = %d\n", key, num );
 
     // Get the buffer ready. 10 for the maximum lenghth of an int and +5 for metadata
     char val[ 15 ];
@@ -284,7 +313,7 @@ vmod_timing( struct sess *sp, struct vmod_priv *priv, const char *key, int num )
 
 void
 vmod_counter( struct sess *sp, struct vmod_priv *priv, const char *key, int num ) {
-    _DEBUG && printf( "counter: %s = %d\n", key, num );
+    _DEBUG && fprintf( stderr, "vmod-statsd: counter: %s = %d\n", key, num );
 
     // Get the buffer ready. 10 for the maximum lenghth of an int and +5 for metadata
     char val[ 15 ];
@@ -297,7 +326,7 @@ vmod_counter( struct sess *sp, struct vmod_priv *priv, const char *key, int num 
 
 void
 vmod_gauge( struct sess *sp, struct vmod_priv *priv, const char *key, int num ) {
-    _DEBUG && printf( "gauge: %s = %d\n", key, num );
+    _DEBUG && fprintf( stderr, "vmod-statsd: gauge: %s = %d\n", key, num );
 
     // Get the buffer ready. 10 for the maximum lenghth of an int and +5 for metadata
     char val[ 15 ];
@@ -329,6 +358,6 @@ vmod_gauge( struct sess *sp, struct vmod_priv *priv, const char *key, int num ) 
 // 	return (p);
 // }
 
-//     _DEBUG && fprintf( stderr, "Open: %.9f Req: %.9f Res: %.9f End: %.9f\n",
+//     _DEBUG && fprintf( stderr, "vmod-statsd: Open: %.9f Req: %.9f Res: %.9f End: %.9f\n",
 //         sp->t_open, sp->t_req, sp->t_resp, sp->t_end );
 
