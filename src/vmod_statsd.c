@@ -8,6 +8,7 @@
 #include "vcc_if.h"
 
 // Socket related libraries
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -16,7 +17,7 @@
 
 #define BUF_SIZE 500
 
-//#define DEBUG 1
+#define DEBUG 1
 
 #ifdef DEBUG                    // To print diagnostics to the error log
 #define _DEBUG 1                // enable through gcc -DDEBUG
@@ -150,6 +151,8 @@ _connect_to_statsd( struct vmod_priv *priv ) {
         return -1;
     }
 
+    _DEBUG && fprintf( stderr, "vmod-statsd: getaddrinfo completed\n" );
+
     // ******************************
     // Store the open connection
     // ******************************
@@ -249,12 +252,15 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
     // Send the stat
     int sent = write( sock, stat, len );
 
-    _DEBUG && fprintf( stderr, "Sent %d of %d bytes to FD %d\n", sent, len, sock );
+    _DEBUG && fprintf( stderr, "vmod-statsd: Sent %d of %d bytes to FD %d\n", sent, len, sock );
 
     // Should we unset the socket if this happens?
     if( sent != len ) {
-        _DEBUG && fprintf( stderr, "Partial/failed write for %s\n", stat );
-        return -1;
+        // an error occurred
+        int write_error = errno;
+        fprintf( stderr, "vmod-statsd: Could not write stat '%s': %s (errno %d)\n",
+                         stat, strerror(write_error), write_error );
+        return write_error;
     }
 
     return 0;
