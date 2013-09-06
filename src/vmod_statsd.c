@@ -260,7 +260,7 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
         int write_error = errno;
         fprintf( stderr, "vmod-statsd: Could not write stat '%s': %s (errno %d)\n",
                          stat, strerror(write_error), write_error );
-        return write_error;
+        return -1;
     }
 
     return 0;
