@@ -8,6 +8,7 @@
 #include "vcc_if.h"
 
 // Socket related libraries
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -62,6 +63,22 @@ _strip_newline( char *line ) {
 // Configuration
 // ******************************
 
+static void
+free_function(void *priv) {
+    config_t *cfg = priv;
+    if( cfg->socket > 0 ) {
+        _DEBUG && fprintf( stderr, "vmod-statsd: free: Closing socket with FD %d\n", cfg->socket );
+        int close_ret = close( cfg->socket );
+        if( close_ret != 0 ) {
+            int close_error = errno;
+            _DEBUG && fprintf( stderr, "vmod-statsd: free: Error closing socket: %s (errno %d)\n",
+                             strerror(close_error), close_error );
+        }
+        cfg->socket = 0;
+        _DEBUG && fprintf( stderr, "vmod-statsd: free: Socket closed/reset\n" );
+    }
+}
+
 int
 init_function(struct vmod_priv *priv, const struct VCL_conf *conf) {
 
@@ -75,6 +92,7 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf) {
     cfg->port   = "8125";
     cfg->prefix = "";
     cfg->suffix = "";
+    cfg->socket = 0;
 
     _DEBUG && fprintf( stderr, "vmod-statsd: init: configuration initialized\n" );
 
@@ -83,6 +101,7 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf) {
     // ******************************
 
     priv->priv = cfg;
+    priv->free = free_function;
 
 	return (0);
 }
@@ -159,7 +178,7 @@ _connect_to_statsd( struct vmod_priv *priv ) {
         return -1;
     }
 
-    _DEBUG && fprintf( stderr, "vmod-statsd: getaddrinfo completedn" );
+    _DEBUG && fprintf( stderr, "vmod-statsd: getaddrinfo completed\n" );
 
     // ******************************
     // Store the open connection
@@ -280,9 +299,26 @@ _send_to_statsd( struct vmod_priv *priv, const char *key, const char *val ) {
 
     _DEBUG && fprintf( stderr, "vmod-statsd: Sent %d of %d bytes to FD %d\n", sent, len, sock );
 
-    // Should we unset the socket if this happens?
+    // An error occurred - unset the socket so that the next write may try again
     if( sent != len ) {
-        _DEBUG && fprintf( stderr, "vmod-statsd: Partial/failed write for %s\n", stat );
+        int write_error = errno;
+        _DEBUG && fprintf( stderr, "vmod-statsd: Could not write stat '%s': %s (errno %d)\n",
+                         stat, strerror(write_error), write_error );
+
+        // if the write_error is not due to a bad file descriptor, try to close the socket first
+        if( write_error != 9 ) {
+            _DEBUG && fprintf( stderr, "vmod-statsd: Closing socket with FD: %d\n", sock );
+            int close_ret_val = close( sock );
+            if( close_ret_val != 0 ) {
+                int close_error = errno;
+                _DEBUG && fprintf( stderr, "vmod-statsd: Error closing socket: %s (errno %d)\n",
+                                 strerror(close_error), close_error );
+            }
+        }
+        // reset the socket
+        cfg->socket = 0;
+        _DEBUG && fprintf( stderr, "vmod-statsd: Socket closed/reset\n" );
+
         return -1;
     }
 
