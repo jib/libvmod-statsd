@@ -7,8 +7,8 @@ Varnish Statsd Module
 ----------------------
 
 :Author: Jos Boumans
-:Date: 2012-08-22
-:Version: 1.0
+:Date: 2014-01-14
+:Version: 1.1
 :Manual section: 3
 
 SYNOPSIS
