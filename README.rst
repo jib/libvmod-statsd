@@ -8,7 +8,7 @@ Varnish Statsd Module
 
 :Author: Jos Boumans
 :Date: 2014-01-14
-:Version: 1.1
+:Version: 1.2
 :Manual section: 3
 
 SYNOPSIS
@@ -172,7 +172,7 @@ You will also need a compiled version of the varnish source code, which you
 can get from here:
 
  https://www.varnish-cache.org
- 
+
 The compilation of varnish is similar to this package. Please refer to the
 varnish documentation for all the options, but briefly, it is::
 
