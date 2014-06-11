@@ -160,7 +160,7 @@ _connect_to_statsd( struct vmod_priv *priv ) {
     memset( hints, 0, sizeof(struct addrinfo) );
 
     // what type of socket is the statsd endpoint?
-    hints->ai_family   = AF_INET;
+    hints->ai_family   = AF_UNSPEC;
     hints->ai_socktype = SOCK_DGRAM;
     hints->ai_protocol = IPPROTO_UDP;
     hints->ai_flags    = 0;
