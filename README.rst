@@ -166,7 +166,7 @@ INSTALLATION
 To install this module, you'll need to install some prerequisites. On Ubuntu,
 you can get these by running::
 
- $ apt-get install automake libtool python-docutils
+ $ apt-get install automake libtool python-docutils libvarnishapi-dev make
 
 You will also need a compiled version of the varnish source code, which you
 can get from here:
